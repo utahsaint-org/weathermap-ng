@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Uplink Dashboard{% endblock %}
+{% block head %}
+<script type="module" src="/static/js/uplinks.js" id="startupscript" data-mapname="{{ mapname }}"></script>
+{% endblock %}
+{% block content %}
+<h2 class="map-name"><span id="mapname"></span></h2>
+<svg id="map" viewBox="-960 -430 1920 900"></svg>
+{% endblock %}

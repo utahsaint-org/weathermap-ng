@@ -1,0 +1,81 @@
+###
+# docker-compose.yml
+# Useful for running the Weathermap application with an nginx frontend/proxy
+#     by Danial Ebling for UEN (danial@uen.org)
+#
+###
+version: "3.8"
+networks:
+  wmap_net:
+services:
+  # Weathermap server
+  weathermap:
+    build: ./
+    # !!uncomment the following lines for plaintext configuration - filename may also be changed
+    #env_file: 
+    #  - config.env
+
+    # !!comment the following environment section if env_file is set, or
+    #   leave uncommented to use environment variables passed in
+    environment:
+      INFLUX_METRIC_HOST:
+      INFLUX_METRIC_USERNAME:
+      INFLUX_METRIC_PASSWORD:
+      INFLUX_METRIC_DATABASE:
+      INFLUX_METRIC_MEASUREMENT:
+      INFLUX_METRIC_INTERVAL:
+      INFLUX_OPTIC_MEASUREMENT:
+      INFLUX_OPTIC_INTERVAL:
+      INFLUX_COUNTER_MEASUREMENT:
+      INFLUX_DESC_PORT:
+      INFLUX_DESC_DATABASE:
+      INFLUX_DESC_MEASUREMENT:
+      INFLUX_DESC_INTERVAL:
+      SNMP_COMMUNITY:
+      SNMP_HOSTS:
+    networks:
+      - wmap_net
+    deploy:
+      # run 2 instances of weathermap for redundancy - they can also be updated without
+      # interrupting the service
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 30s
+        monitor: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+
+  # nginx
+  proxy:
+    image: nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/usr/share/nginx/html/static/:ro
+      - ./maps:/usr/share/nginx/html/maps/:ro
+      - ./uplinks:/usr/share/nginx/html/uplinks/:ro
+      # HTTPS certificates
+      - ./cert.key:/etc/nginx/cert.key:ro
+      - ./cert.pem:/etc/nginx/cert.pem:ro
+    ports:
+      # host mode required to get real client IP
+      - mode: host
+        protocol: tcp
+        published: 80
+        target: 80
+      - mode: host
+        protocol: tcp
+        published: 443
+        target: 443
+    networks:
+      - wmap_net
+    restart: always
+    deploy:
+      # required for docker swarm
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - "node.role==manager"

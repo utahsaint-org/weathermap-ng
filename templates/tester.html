@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Map Tester{% endblock %}
+{% block head %}<script type="module" src="/static/js/tester.js"></script>{% endblock %}
+{% block content %}
+<h2 class="map-name"><span id="mapname">Map Tester</span></h2>
+<div class="form-file ms-4" style="width:25em;">
+  <input class="form-file-input" type="file" accept="application/json" id="mapinput">
+  <label class="form-file-label" for="mapinput">Choose map .json file to test</label>
+</div>
+<div id="dataselcontainer" class="dropdown">
+  <select id="dataselector" class="form-select form-select-sm">
+    <option disabled>Link data</option>
+    <option selected value="util">Utilization</option>
+    <option value="optic">Optics</option>
+  </select>
+</div>
+<svg id="map" viewBox="-960 -430 1920 860"></svg>
+<img id="logo" style="display:block;"/>
+{% endblock %}

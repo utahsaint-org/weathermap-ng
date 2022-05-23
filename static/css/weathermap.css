@@ -1,0 +1,109 @@
+body, html {
+	height: 100%;
+}
+
+body {
+	font-family: 'Open Sans', sans-serif;
+	color: #949ba2;
+	background-color: #000;
+	font-size: 13px;
+}
+
+.dropdown-menu {
+	font-size: 13px;
+}
+
+.navbar {
+	padding: 0.25rem 1rem;
+}
+
+.navbar-brand {
+	color: #7ebe42 ! important;
+}
+
+#noc-exit {
+	color:#fff;
+	display:none;
+	float:right;
+	padding: 0.5rem;
+}
+
+h2 {
+	margin-bottom: 0;
+	float: left;
+}
+
+div.noc {
+	margin-left: auto;
+	margin-right: auto;
+	padding-left: 120px;
+	padding-right: 120px;
+}
+
+small {
+	font-size: 14px;
+}
+
+#logo {
+	display: none;
+	max-width: 200px;
+	max-height: 200px;
+	position: absolute;
+	border: none;
+	bottom: 50px;
+	right: 16px;
+	z-index: -999;
+	margin-bottom: 10px;
+}
+
+#dataselcontainer {
+	float: right;
+	display: block;
+}
+
+.form-select {
+	background: #222;
+	color: #ccc;
+}
+
+#mapcontainer {
+	padding: 0.5rem 1rem;
+	margin-bottom: 2rem;
+	max-width: none;
+}
+
+#mapName {
+	font-family: sans-serif;
+	margin-top: 10px;
+	margin-bottom: 0;
+	margin-left: auto;
+	margin-right: auto;
+	color: #fff;
+	font-size: 24px;
+	display: inline-block;
+}
+
+#footer {
+	position: fixed;
+	bottom: 0;
+	width: 100%;
+}
+
+#footer footer {
+	position: relative;
+}
+
+#footer .navbar-text {
+	margin-bottom: 0;
+}
+
+div.tooltip {
+	position: absolute;
+	background: #222;
+	text-align: center;
+	padding: 4px;
+	top:0;
+	border: 0;
+	border-radius: 4px;
+	pointer-events: none;
+}

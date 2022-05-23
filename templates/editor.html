@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Editor{% endblock %}
+{% block style %}
+  .form-control, .form-control:disabled, .form-select {
+    color: #fff;
+    background-color: #111;
+    border-color: #888;
+  }
+  .form-control:active, .form-control:focus {
+    background-color: #444;
+    color: #fff;
+  }
+  select.form-select {
+    -webkit-appearance: menulist;
+  }
+  .badge {
+    margin-left: 4px;
+    background-color: #6c757d;
+  }
+  .badge:hover {
+    background-color: #0d6efd;
+    cursor: pointer;
+  }
+{% endblock %}
+{% block head %}<script src="/static/js/editor.js"></script>{% endblock %}
+{% block content %}
+<h2 class="map-name">Custom Map Generator</h2>
+<div class="container col-6">
+  <form action="javascript:void(0);">
+    <div class="mb-2">
+      <label for="form_mapname">Map name</label>
+      <input type="text" class="form-control" id="form_mapname" required>
+    </div>
+    <div class="mb-2">
+      <label for="device_dropdown">Devices</label>
+      <div class="input-group">
+        <select class="form-select" id="device_dropdown">
+          <option selected disabled>Select a device</option>
+          {% for node in nodes %} <option>{{ node }}</option> {% endfor %}
+        </select>
+        <button class="btn btn-outline-primary" id="device_dropdown_add" onclick="add_dropdown()">Add device</button>
+      </div>
+    </div>
+    <div class="mb-2">
+      <label for="device_input">Or specify a device manually</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="device_input">
+        <button class="btn btn-outline-primary" id="device_input_add" onclick="add_device()">Add device</button>  
+      </div>
+    </div>
+    <div class="mb-2">
+      <label for="remote_input">Remote interface description</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="remote_input">
+        <button class="btn btn-outline-primary" id="remote_input_add" onclick="add_remote()">Add remote</button>  
+      </div>
+    </div>
+    <div class="mb-2">
+        <label for="devices">Configured devices</label>
+        <div class="input-group">
+          <div id="devices" class="form-control"></div>
+          <button class="btn btn-outline-danger" onclick="cleardevices()">Clear</button>
+        </div>
+        <label for="remotes">Configured remotes</label>
+        <div class="input-group">
+          <div id="remotes" class="form-control"></div>
+          <button class="btn btn-outline-danger" onclick="clearremotes()">Clear</button>
+        </div>
+    </div>
+    <div class="mb-2">
+    <button class="btn btn-primary mb-2 ms-auto me-auto" onclick="generate()">Generate link</button>
+    </div>
+
+    <div class="mb-2" id="maplinkgroup" style="display: none;">
+      <div class="input-group">
+        <input type="text" class="form-control" disabled id="maplink">
+        <button class="btn btn-outline-success" id="copybtn" onclick="copy()" title="Copy link">&#10697;</button>
+        <a class="btn btn-outline-primary" id="downloadbtn" onclick="downloadconfig()" title="Download JSON">&#10515;</a>
+        <button class="btn btn-outline-primary" onclick="go()" title="Open in new tab">&#x2197;</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

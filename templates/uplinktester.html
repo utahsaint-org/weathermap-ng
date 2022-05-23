@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Uplink Tester{% endblock %}
+{% block head %}<script type="module" src="/static/js/uplinktester.js"></script>{% endblock %}
+{% block content %}
+<h2 class="map-name"><span id="mapname">Uplink Tester</span></h2>
+<div class="form-file ms-4" style="width:25em;">
+  <input class="form-file-input" type="file" accept="application/json" id="mapinput">
+  <label class="form-file-label" for="mapinput">Choose uplink .json file to test</label>
+</div>
+<svg id="map" viewBox="-960 -430 1920 900"></svg>
+{% endblock %}

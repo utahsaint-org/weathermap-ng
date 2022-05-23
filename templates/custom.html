@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ maptitle }}{% endblock %}
+{% block head %}<script type="module" src="/static/js/custom.js"></script>{% endblock %}
+{% block script %}
+  var config  = {
+    "name": "{{ maptitle }}",
+    "nodes": [{% for node in nodes %}{"name": "{{ node }}"}{% if not loop.last %},{% endif %}{% endfor %}],
+    "remotes": [{% for remote in remotes %}{"name": "{{ remote }}"}{% if not loop.last %},{% endif %}{% endfor %}]
+  }
+{% endblock %}

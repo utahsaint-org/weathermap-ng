@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }}{% endblock %}
+{% block content %}
+<h2>Error {{ code }}</h2>
+<div class="col-6 align-middle mt-4" style="display: block; margin: auto; text-align: center;">
+  <h3 style="color: #a33">{% if shortdesc %}{{ shortdesc }}: {% endif %}{{ longdesc }}</h3>
+  <input class="btn btn-primary" type="button" value="Go back" onclick="history.back()">
+</div>
+{% endblock%}

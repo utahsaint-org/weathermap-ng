@@ -1,0 +1,157 @@
+svg {
+  width: 100%;
+}
+
+text {
+  font-family: Avenir, HelveticaNeue-UltraLight, Helvetica;
+}
+
+rect.label {
+  fill: #000;
+  stroke: #ccc;
+  stroke-width: 0.5;
+}
+
+text.label {
+  letter-spacing: 1.5;
+  font-family: avenir, consolas, courier;
+  fill: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+circle, rect {
+  /*cursor: pointer;*/
+  stroke-width: 3px;
+}
+
+circle.node {
+  fill: black;
+  stroke: #777;
+}
+
+circle.node:hover {
+  fill: #5a3;
+  stroke-width: 5px;
+}
+
+text.node {
+  pointer-events: none;
+  fill: #fff;
+  font-size: 12px;
+  text-anchor: middle;
+  cursor: pointer;
+}
+
+text.shadow {
+  /* needs 2 shadows for a stronger effect */
+  text-shadow: 0px 0px 2px black, 0px 0px 4px black;
+}
+
+/* Edge node */
+
+circle.edge {
+  fill: #000;
+  stroke: #f60;
+}
+
+circle.edge:hover {
+  fill: #5a3;
+  stroke-width: 3px;
+}
+
+text.edge {
+  pointer-events: none;
+  fill: #fff;
+  font-size: 12px;
+  text-anchor: middle;
+  cursor: pointer;
+}
+
+rect.edge, path.edge {
+  fill: #000;
+  stroke: #66c;
+}
+
+rect.edge:hover, path.edge:hover {
+  fill: #33c;
+}
+
+text.edge {
+  pointer-events: none;
+  fill: #fff;
+  font-size: 11px;
+  text-anchor: middle;
+  cursor: pointer;
+}
+
+circle.device {
+  fill: #000;
+  stroke: #fff;
+  stroke-width: 4px;
+}
+
+circle.device:hover {
+  fill: #c60;
+  stroke-width: 3px;
+}
+
+circle.ibr {
+  fill: #fff;
+  stroke: black;
+  stroke-width: 5px;
+}
+
+circle.ibr:hover {
+  fill: #c06;
+}
+
+rect.aggregate {
+  stroke: #333;
+  stroke-width: 3px;
+  fill: #111;
+  cursor: auto;
+}
+
+/* Link styling */
+
+.bw100G {
+  stroke-width: 14px;
+}
+
+.bw40G {
+  stroke-width: 11px;
+}
+
+.bw30G {
+  stroke-width: 10px;
+}
+
+.bw20G {
+  stroke-width: 9px;
+}
+
+.bw10G {
+  stroke-width: 7px;
+}
+
+.bw2G {
+  stroke-width: 5px;
+}
+
+.bw1G {
+  stroke-width: 4px;
+}
+
+.bw100M {
+  stroke-width: 2px;
+}
+
+/* these are unlikely to exist in practice */
+.bw10M {
+  stroke-width: 2px;
+}
+
+.bw1M {
+  stroke-width: 2px;
+}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Weathermap - {% block title%}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/css/weathermap.css">
+    <link rel="stylesheet" href="/static/css/weathermap-svg.css">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <style>
+      {% block style %}
+      {% endblock %}
+    </style>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script type="module" src="/static/js/weathermap.js"></script>
+    {% block head %}
+    {% endblock %}
+    <script type="text/javascript">
+      {% block script%}
+      {% endblock %}
+    </script>
+  </head>
+
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+      <div class="container-fluid ps-0">
+        <a class="navbar-brand" href="/">Weathermap <small>v4.1</small></a>
+        <div class="collapse navbar-collapse" id="navbarcontent">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item dropdown">
+              <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" id="dropdownmaps" role="button" aria-expanded="false">Network Maps</a>
+              <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="dropdownmaps">
+                {% for group in networkmaps.keys() | sort %}
+                    <li><span class="dropdown-header">{{ group }}</span></li>
+                    {% for map in networkmaps[group] %}
+                        <li><a class="dropdown-item" href="{{ url_for('load_page', mapname=map[0]) }}">{{ map[1] }}</a></li>
+                    {% endfor %}
+                {% endfor %}
+              </ul>
+            </li>
+            <li class="nav-item dropdown">
+              <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" id="dropdownuplinks" role="button" aria-expanded="false">Uplinks</a>
+              <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="dropdownuplinks">
+                {% for group in uplinkpages.keys() | sort %}
+                    <li><span class="dropdown-header">{{ group }}</span></li>
+                    {% for map in uplinkpages[group] %}
+                        <li><a class="dropdown-item" href="{{ url_for('load_uplink_page', uplinkname=map[0]) }}">{{ map[1] }}</a></li>
+                    {% endfor %}
+                {% endfor %}
+              </ul>
+            </li>
+            <li class="nav-item"><a class="nav-link" onclick="noc_enter()" href="#">NOC View</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('load_editor') }}">Map Generator</a></li>
+            {% if request.url_rule.endpoint in ['load_page', 'load_default_page'] %}<li><a class="nav-link" href="{{ url_for('timeline', mapname=request.path.split('/')[-1], **request.args) }}">Timeline</a></li>{% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <a href="#" id="noc-exit" onclick="noc_exit()">Exit NOC view</a>
+
+    <div id="mapcontainer" class="container-md">
+      {% block content %}
+      <h2 class="map-name"><span id="mapname"></span></h2>
+      <div id="dataselcontainer" class="dropdown">
+        <select id="dataselector" class="form-select form-select-sm">
+          <option disabled>Link data</option>
+          <option selected value="util">Utilization</option>
+          <option value="optic">Optics</option>
+        </select>
+      </div>
+      <svg id="map" viewBox="-960 -430 1920 860"></svg>
+      <img id="logo" {% if logo %}style="display:block;" src="/static/images/{{ logo }}.png"{% endif %}/>
+      {% endblock %}
+    </div>
+
+    <div id="footer">
+      <footer class="navbar navbar-dark bg-dark navbar-fixed-bottom" >
+        <p class="navbar-text">Copyright &copy; 2022 - Network Operations Center - Utah Education Network</p>
+        <span class="navbar-right nav-item" id="time"></span>
+      </footer>
+    </div>
+    <!-- tooltip popup div -->
+    <div class="tooltip" style="opacity: 0"></div>
+  </body>
+</html>

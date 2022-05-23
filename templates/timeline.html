@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Network Visualizer{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="/static/css/bootstrap-datepicker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="/static/js/bootstrap-datepicker.min.js"></script>
+<script type="module" src="/static/js/timeline.js" id="startupscript" data-mapname="{{ mapname }}"></script>
+{% endblock %}
+{% block script %}
+var config = {{ customconfig | safe }};
+{% endblock %}
+{% block style %}
+  .form-control, .form-control:disabled, .form-select {
+    color: #fff;
+    background-color: #222;
+    border-color: #888;
+  }
+  .input-group-text {
+    color: #ddd;
+    background-color: #555;
+    border-color: #888;
+  }
+  .form-control:active, .form-control:focus {
+    background-color: #444;
+    color: #fff;
+  }
+{% endblock %}
+{% block content %}
+<h2 class="map-name"><span id="mapname"></span></h2>
+<div id="dataselcontainer" class="dropdown">
+  <select id="dataselector" class="form-select form-select-sm">
+    <option disabled>Link data</option>
+    <option selected value="util">Utilization</option>
+    <option value="optic">Optics</option>
+  </select>
+</div>
+<div class="col-4 container">
+  <form action="javascript:void(0);">
+    <div class="row">
+      <div class="col-9">
+        <div class="input-group input-group-sm" id="datepicker">
+          <input type="text" class="form-control" id="date" required>
+          <select class="form-control" id="hour" required>
+            <option selected>All day</option>
+            {% for h in range(24) %}<option value="{{ h }}">{{ h }}:00-{{ h }}:59</option>{% endfor %}
+          </select>
+          <button id="timeline-load" class="btn btn-sm btn-secondary">Load</a>
+          <button id="timeline-stepbackward" class="btn btn-sm btn-outline-primary" disabled>&lt;</a>
+          <button id="timeline-startstop" class="btn btn-sm btn-primary" disabled>Start</a>
+          <button id="timeline-stepforward" class="btn btn-sm btn-outline-primary" disabled>&gt;</a>
+        </div>
+      </div>
+      <div class="col-3 pt-1">
+        <input class="form-range" type="range" id="timeline-speed" min="1" max="10" value="1" title="Playback speed">
+      </div>
+    </div>
+  </form>
+  <div>
+    <input class="form-range" type="range" id="timeline-step" min="0" max="24">
+  </div>
+  <div class="text-center">
+    <span id="timelinestatus"></span>
+  </div>
+</div>
+<svg id="map" viewBox="-960 -430 1920 860"></svg>
+<img id="logo" {% if logo %}style="display:block;" src="/static/images/{{ logo }}.png"{% endif %}/>
+{% endblock %}
