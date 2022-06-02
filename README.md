@@ -1,6 +1,8 @@
 UEN Weathermap
 ==============
 
+![Weathermap screenshot](documentation/screenshot.png)
+
 Weathermap is a web application that shows your network utilization, optical power, and link health on a logical map. Maps are defined by lists of devices (nodes), and Weathermap discovers links in between each node by matching interface descriptions.
 
 Map/Interface features
