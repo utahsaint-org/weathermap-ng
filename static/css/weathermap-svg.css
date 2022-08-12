@@ -115,6 +115,14 @@ rect.aggregate {
 
 /* Link styling */
 
+.bw800G {
+  stroke-width: 17px;
+}
+
+.bw400G {
+  stroke-width: 16px;
+}
+
 .bw100G {
   stroke-width: 14px;
 }
