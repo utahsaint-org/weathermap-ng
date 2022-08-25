@@ -89,7 +89,9 @@ class InfluxClient(DataSource):
         metric_interval_query = f"(time > now() - {self._metric_interval}s)"
         optic_interval_query = f"(time > now() - {optic_settings['interval'] * 5}s)"
         description_interval = f"(time > now() - {description_settings['interval'] * 3}s)"
-        counter_interval = f"(time > now() - {counter_settings['interval'] * 3}s)"
+        # counter interval works a little differently - it gets a delta across an interval 
+        # so it's in minutes instead of seconds
+        counter_interval_query = f"(time > now() - {counter_settings['interval'] * 60}s)"
 
         self._device_query = Cache(
             'devices',
@@ -146,13 +148,22 @@ class InfluxClient(DataSource):
             timeout=timedelta(seconds=self.config.HISTORIC_LONG_INTERVAL))
         self._counter_query = Cache(
             'counters',
-            self._counter_connection.query,
-            f'SELECT last("{self.config.COUNTER_CRC_NAME}") AS "crc", '
-            f'last("{self.config.COUNTER_INPUT_ERROR_NAME}") AS "inerr", '
-            f'last("{self.config.COUNTER_PACKET_RX_NAME}") AS "inrx", '
-            f'last("{self.config.COUNTER_OUTPUT_DROP_NAME}") AS "outerr" '
-            f'FROM "{counter_settings["measurement"]}" WHERE {counter_interval} {group_by} LIMIT 1',
-            timeout=timedelta(seconds=counter_settings['interval'] * 2))
+            self._query_by_device, self._counter_connection,
+            f'SELECT last("{self.config.COUNTER_CRC_NAME}") - first("{self.config.COUNTER_CRC_NAME}") AS "crc", '
+            f'last("{self.config.COUNTER_INPUT_ERROR_NAME}") - first("{self.config.COUNTER_INPUT_ERROR_NAME}") AS "inerr", '
+            f'last("{self.config.COUNTER_PACKET_RX_NAME}") - first("{self.config.COUNTER_PACKET_RX_NAME}") AS "inrx", '
+            f'last("{self.config.COUNTER_OUTPUT_DROP_NAME}") - first("{self.config.COUNTER_OUTPUT_DROP_NAME}") AS "outerr" '
+            f'FROM "{counter_settings["measurement"]}" WHERE ', counter_interval_query, group_by, 'LIMIT 1',
+            timeout=timedelta(seconds=counter_settings['interval']))
+        self._historic_counter_query = Cache(
+            'historic-counters',
+            self._query_by_device, self._counter_connection,
+            f'SELECT last("{self.config.COUNTER_CRC_NAME}") - first("{self.config.COUNTER_CRC_NAME}") AS "crc", '
+            f'last("{self.config.COUNTER_INPUT_ERROR_NAME}") - first("{self.config.COUNTER_INPUT_ERROR_NAME}") AS "inerr", '
+            f'last("{self.config.COUNTER_PACKET_RX_NAME}") - first("{self.config.COUNTER_PACKET_RX_NAME}") AS "inrx", '
+            f'last("{self.config.COUNTER_OUTPUT_DROP_NAME}") - first("{self.config.COUNTER_OUTPUT_DROP_NAME}") AS "outerr" '
+            f'FROM "{counter_settings["measurement"]}" WHERE ', None, group_by, '',
+            timeout=timedelta(seconds=self.config.HISTORIC_LONG_INTERVAL))
 
     def _query_by_device(self, connection, query, query_time, query_group, query_limit):
         """Very similar to InfluxDBClient.query, except it returns a dictionary keyed by node name.
@@ -492,6 +503,47 @@ class InfluxClient(DataSource):
             args[4]])
         return self._parse_optics(node_names, self._historic_optic_query.get(*new_args))
 
+    def _parse_counters(self, node_names, query_data):
+        """
+        :param node_names: 
+        :param query_data:
+        :param query_data: 
+        """
+        counters = {}
+        for node_name in node_names:
+            counters[node_name] = {}
+            for result in query_data.get(node_name, []):
+                try:
+                    points = result[1]
+                    if isinstance(points, dict):
+                        # only one item returned without a timestamp, store a single datapoint
+                        if points.get('crc') is None:
+                            continue # no data found
+                        counters[node_name][result[0][1].get(self.config.METRIC_INTERFACE_NAME)] = Counter(
+                            max(points.get('crc', 0), 0),
+                            max(points.get('inerr', 0), 0),
+                            max(points.get('inrx', 0), 0),
+                            max(points.get('outerr', 0), 0),
+                            self.datasource,
+                            datetime.now())
+                    else:
+                        # multiple items returned, store a list of datapoints
+                        counters[node_name][result[0][1].get(self.config.METRIC_INTERFACE_NAME)] = []
+                        for point in points:
+                            if point.get('crc') is None:
+                                # no data found, but keep empty spot so we don't shuffle times
+                                counters[node_name][result[0][1].get(self.config.METRIC_INTERFACE_NAME)].append(None)
+                            counters[node_name][result[0][1].get(self.config.METRIC_INTERFACE_NAME)].append(Counter(
+                                max(point.get('crc', 0), 0),
+                                max(point.get('inerr', 0), 0),
+                                max(point.get('inrx', 0), 0),
+                                max(point.get('outerr', 0), 0),
+                                self.datasource,
+                                datetime.strptime(point.get('time'), "%Y-%m-%dT%H:%M:%S%z")))
+                except TypeError:
+                    continue # problem getting counters (None was returned instead of an int), skip
+        return counters
+
     @lookup_node
     def get_counters(self, node_names) -> dict:
         """Get interface counters for a specific node or all nodes.
@@ -501,18 +553,38 @@ class InfluxClient(DataSource):
         name, inner dictionary is keyed by interface ID.
 
         """
-        counter_data = self._counter_query.get()
-        counters = {}
-        for node_name in node_names:
-            counters[node_name] = {}
-            for result in counter_data.items():
-                if result[0][1].get(self.config.NODE_NAME) == node_name:
-                    points = next(result[1])
-                    counters[node_name][result[0][1].get(self.config.METRIC_INTERFACE_NAME)] = Counter(
-                        points.get('crc'),
-                        points.get('inerr'),
-                        points.get('inrx'),
-                        points.get('outerr'),
-                        self.datasource,
-                        datetime.now())
-        return counters
+        return self._parse_counters(node_names, self._counter_query.get())
+
+    @lookup_node
+    def get_historic_counters(self, node_names, starttime=None, endtime=None, short_interval=False) -> dict:
+        """Get historical interface counters for a specific node or all nodes.
+
+        :param node_names: List of node names to query.
+        :param starttime: Beginning time as a datetime object. (Default value = None)
+        :param endtime: End time as a datetime object. (Default value = None)
+        :param short_interval: If True, use short intervals, otherwise use long intervals as defined in the config.
+        (Default value = False)
+        :returns: A dictionary of dictionaries containing a list of Optic objects. Outer dictionary is keyed by node
+        name, inner dictionary is keyed by interface ID. The list is sorted by time, and each Optic object includes a
+        timestamp.
+
+        """
+        if not isinstance(starttime, datetime) or not isinstance(endtime, datetime):
+            raise ValueError("starttime and endtime must be datetime objects")
+        # get existing args, modify for intervals and previous data
+        args = list(self._historic_counter_query.args)
+        # multiply time to get nanosecond precision
+        # also filter for specific sources - less likely to hit cache, but query time is faster
+        filter_query = (f'time > {int(starttime.timestamp() * 1000000000)}'
+                        f' AND time < {int(endtime.timestamp() * 1000000000)}'
+                        f' AND "{self.config.NODE_NAME}" =~ /{"|".join(sorted(node_names))}/')
+        interval = (self.config.HISTORIC_SHORT_INTERVAL if short_interval else self.config.HISTORIC_LONG_INTERVAL)
+        new_args = tuple([
+            args[0],
+            args[1],
+            filter_query,
+            args[3].replace('GROUP BY',
+                f'GROUP BY time({interval}s),'),
+            args[4]])
+        print(new_args)
+        return self._parse_counters(node_names, self._historic_counter_query.get(*new_args))

@@ -1,5 +1,11 @@
 /* jshint esversion: 6 */
-import { linkcolors, translate_color, optic_color } from "./graphics.js";
+import { linkcolors, translate_color, optic_color, health_color } from "./graphics.js";
+
+export const DataType = {
+  Optic: Symbol("optic"),
+  Utilization: Symbol("utilization"),
+  Health: Symbol("health")
+}
 
 export function truncate(bits) {
   function divide(n, d) {
@@ -22,52 +28,187 @@ export function truncate(bits) {
   if (bits > 0) return divide(bits, 1);
 }
 
+function link_name(first, second) {
+  return ((typeof first == "string" ? first : first.name) + "---" + (typeof second == "string" ? second : second.name)).replace(/ /g, "__");
+}
+
 function tooltip_data(link, datatype) {
-  if (datatype == "util") {
-    return [[{
-      "name": link.source + "&rarr;" + link.target + " x" + link.numlinks,
-      "type": datatype,
-      "bw": truncate(link.totalbandwidth),
-      "pct": (link.out / link.totalbandwidth * 100).toFixed(0),
-      "state": link.state,
-      "datasource": link.datasource
-    }],
-    [{
-      "name": link.target + "&rarr;" + link.source + " x" + link.numlinks,
-      "type": datatype,
-      "bw": truncate(link.totalbandwidth),
-      "pct": (link.in / link.totalbandwidth * 100).toFixed(0),
-      "state": link.state,
-      "datasource": link.datasource
-    }]];
-  } else if (datatype == "optic") {
-    return [[{
-      "name": link.source + "&rarr;" + link.target,
-      "type": datatype,
-      "rx": link.source_receive,
-      "tx": link.source_transmit,
-      "lbc": link.source_lbc,
-      "state": link.state,
-      "datasource": link.datasource
-    }],
-    [{
-      "name": link.target + "&rarr;" + link.source,
-      "type": datatype,
-      "rx": link.target_receive,
-      "tx": link.target_transmit,
-      "lbc": link.target_lbc,
-      "state": link.state,
-      "datasource": link.datasource
-    }]];
+  let near = {
+    "name": link.source + "&rarr;" + link.target + " x" + link.numlinks,
+    "type": datatype,
+    "state": link.state,
+    "datasource": link.datasource,
+  };
+  let far = {
+    "name": link.target + "&rarr;" + link.source + " x" + link.numlinks,
+    "type": datatype,
+    "state": link.state,
+    "datasource": link.datasource,
+  };
+  if (datatype == DataType.Utilization) {
+    near["values"] = [
+      {
+        "name": "total bandwidth",
+        "value": truncate(link.totalbandwidth),
+        "unit": ""
+      },
+      {
+        "name": "utilization",
+        "value": (link.source_out / link.totalbandwidth * 100).toFixed(0),
+        "unit": "%"
+      }
+    ];
+    far["values"] = [
+      {
+        "name": "total bandwidth",
+        "value": truncate(link.totalbandwidth),
+        "unit": ""
+      },
+      {
+        "name": "utilization",
+        "value": (link.target_out / link.totalbandwidth * 100).toFixed(0),
+        "unit": "%"
+      }
+    ];
+    // must keep nested list so D3 will accept it
+    return [[near], [far]];
+  } else if (datatype == DataType.Optic) {
+    near["values"] = [];
+    if (link.source_receive !== undefined) {
+      near.values.push({
+        "name": "rx",
+        "value": link.source_receive.toFixed(2),
+        "unit": "dBm"
+      },
+        {
+          "name": "min rx",
+          "value": link.source_receive_min.toFixed(2),
+          "unit": "dBm"
+        });
+    }
+    if (link.source_transmit !== undefined) {
+      near.values.push({
+        "name": "tx",
+        "value": link.source_transmit.toFixed(2),
+        "unit": "dBm"
+      },
+        {
+          "name": "min tx",
+          "value": link.source_transmit_min.toFixed(2),
+          "unit": "dBm"
+        });
+    }
+    if (link.source_lbc !== undefined) {
+      near.values.push({
+        "name": "lane 0 LBC",
+        "value": link.source_lbc.toFixed(0),
+        "unit": "mA"
+      });
+    }
+    far["values"] = [];
+    if (link.target_receive !== undefined) {
+      far.values.push({
+        "name": "rx",
+        "value": link.target_receive.toFixed(2),
+        "unit": "dBm"
+      },
+      {
+        "name": "min rx",
+        "value": link.target_receive_min.toFixed(2),
+        "unit": "dBm"
+      });
+    }
+    if (link.target_transmit !== undefined) {
+      far.values.push({
+        "name": "tx",
+        "value": link.target_transmit.toFixed(2),
+        "unit": "dBm"
+      },
+      {
+        "name": "min tx",
+        "value": link.target_transmit_min.toFixed(2),
+        "unit": "dBm"
+      });
+    }
+    if (link.target_lbc !== undefined) {
+      far.values.push({
+        "name": "lane 0 LBC",
+        "value": link.target_lbc.toFixed(0),
+        "unit": "mA"
+      });
+    }
+    // must keep nested list so D3 will accept it
+    return [[near], [far]];
+  } else if (datatype == DataType.Health) {
+    near["values"] = [];
+    if (link.source_crc_error !== undefined) {
+      near.values.push({
+        "name": "crc",
+        "value": link.source_crc_error,
+        "unit": ""
+      });
+    }
+    if (link.source_input_error !== undefined) {
+      near.values.push({
+        "name": "in err",
+        "value": link.source_input_error,
+        "unit": ""
+      });
+    }
+    if (link.source_output_drop !== undefined) {
+      near.values.push({
+        "name": "out drop",
+        "value": link.source_output_drop,
+        "unit": ""
+      });
+    }
+    if (link.source_packet_loss !== undefined) {
+      near.values.push({
+        "name": "loss",
+        "value": (100.0 * link.source_packet_loss).toFixed(4),
+        "unit": "%"
+      });
+    }
+    far["values"] = [];
+    if (link.target_crc_error !== undefined) {
+      far.values.push({
+        "name": "crc",
+        "value": link.target_crc_error,
+        "unit": ""
+      });
+    }
+    if (link.target_input_error !== undefined) {
+      far.values.push({
+        "name": "in err",
+        "value": link.target_input_error,
+        "unit": ""
+      });
+    }
+    if (link.target_output_drop !== undefined) {
+      far.values.push({
+        "name": "out drop",
+        "value": link.target_output_drop,
+        "unit": ""
+      });
+    }
+    if (link.target_packet_loss !== undefined) {
+      far.values.push({
+        "name": "loss",
+        "value": (100.0 * link.target_packet_loss).toFixed(4),
+        "unit": "%"
+      });
+    }
+    // must keep nested list so D3 will accept it
+    return [[near], [far]];
   }
 }
 
 function tooltip_text(data) {
-  if (data.type == "util") {
-    return (data.name + "<br>total bandwidth: " + data.bw + "<br>utilization: " + data.pct + "%<br>state: " + data.state + "<br>source: " + data.datasource);
-  } else if (data.type == "optic") {
-    return (data.name + "<br>rx: " + data.rx.toFixed(2) + "dBm<br>tx: " + data.tx.toFixed(2) + "dBm<br>lane 0 LBC: " + data.lbc.toFixed(0) + "mA<br>state: " + data.state + "<br>source: " + data.datasource);
+  let text = data.name + "<br>";
+  for (let i = 0; i < data.values.length; i++) {
+    text += data.values[i].name + ": " + data.values[i].value + data.values[i].unit + "<br>";
   }
+  return text + "state: " + data.state + "<br>source: " + data.datasource;
 }
 
 function display_state(state, orig_color) {
@@ -79,6 +220,7 @@ function display_state(state, orig_color) {
 }
 
 class LinkMath {
+  // Drawing math for link graphics
   constructor(sim, source, target) {
     // first, compute midpoints (x and y distances between nodes)
     let mdx = (source.pos()[0] + (target.pos()[0] - source.pos()[0]) / 2);
@@ -123,13 +265,13 @@ class LinkMath {
 }
 
 export class LinkMapper {
-  constructor(svg, node_callback, sim_callback, aggregate_callback, datatype, enable_drawing = true) {
+  constructor(svg, node_callback, sim_callback, aggregate_callback, default_datatype, enable_drawing=true) {
     this.svg = svg;
     this.node_callback = node_callback;
     this.sim_callback = sim_callback;
     this.aggregate_callback = aggregate_callback;
     this.links = {};
-    this.datatype = datatype;
+    this.datatype = default_datatype;
     this.edge_nodes = [];
     this.enable_drawing = enable_drawing;
   }
@@ -146,6 +288,11 @@ export class LinkMapper {
     this.links = {};
     this.svg.selectAll('.label').remove();
     this.svg.selectAll('.link').remove();
+  }
+
+  set_datatype(new_datatype) {
+    this.datatype = new_datatype;
+    this.clear();
   }
 
   update(linkdata) {
@@ -175,13 +322,9 @@ export class LinkMapper {
     }
 
     // generate formatted list of links with timestamp
-    // (removes bidirectional duplicates, adds multiple shared connections, etc.)
+    // (removes bidirectional duplicates, combines shared connections, etc.)
     let now = (new Date()).getTime();
-    if (this.datatype == "util") {
-      goodlinks.forEach(link => this.convert_link_util(link, now));
-    } else if (this.datatype == "optic") {
-      goodlinks.forEach(link => this.convert_link_optic(link, now));
-    }
+    goodlinks.forEach(link => this.convert_link(link, now));
 
     // draw links that were just updated
     if (this.enable_drawing) {
@@ -198,13 +341,14 @@ export class LinkMapper {
 
     // now that we have updated link data, draw aggregates as well (util only for now)
     if (this.aggregate_callback !== undefined && this.aggregate_callback !== null) {
-      if (this.datatype == "util") {
+      if (this.datatype == DataType.Utilization) {
         this.aggregate_callback().forEach(agg => agg.draw(this.svg, this.links));
       } else {
-        // hide aggregate data because we can't do that for optical data yet
-        this.aggregate_callback().forEach(agg => agg.hide(this.svg));
+        // hide aggregate data because we can't do that for optical/health data yet
+        this.aggregate_callback().forEach(agg => agg.remove(this.svg));
       }
     }
+
     // update list of links for force calculations
     if (this.sim_callback().force("link") !== undefined) {
       this.sim_callback().force("link").links(this.link_list());
@@ -213,7 +357,7 @@ export class LinkMapper {
 
   check_link(nodes, link) {
     // check link validity and match it up with nodes on the map
-    if (link.target === undefined) {
+    if (link.target === undefined && link.remote) {
       link.target = link.remote;
     }
 
@@ -221,6 +365,8 @@ export class LinkMapper {
       // direct match, return with no changes
       return link;
     }
+
+    // otherwise, we need to search all nodes
     for (let i = 0; i < nodes.length; i++) {
       // search on each node on the map
       if (link.source.startsWith(nodes[i]) && link.target != nodes[i]) {
@@ -234,8 +380,8 @@ export class LinkMapper {
           return;
         }
         for (let j = 0; j < nodes.length; j++) {
-          if (link.target.startsWith(nodes[j]) && nodes[j] != link.source) {
-            // beginning of link target also starts with a node, rewrite target & return
+          if (nodes[j] != link.source && link.target.startsWith(nodes[j])) {
+            // beginning of link target also starts with a node, rewrite target/remote & return
             link.target = nodes[j];
             if (link.remote !== undefined) {
               link.remote = nodes[j];
@@ -245,15 +391,16 @@ export class LinkMapper {
         }
       }
     }
+    // invalid link
     return;
   }
 
-  convert_link_util(link, timestamp) {
+  convert_link(link, timestamp) {
     // convert link formats and save it in this.links
 
     // sort source and target alphabetically
     if (link.source > link.target) {
-      // switch source and target around
+      // switch source and target so we can sort properly
       let tmp = link.source;
       link.source = link.target;
       link.target = tmp;
@@ -261,105 +408,146 @@ export class LinkMapper {
         // don't forget to update remote if it exists
         link.remote = link.target;
       }
-      // also switch numbers so they're not reversed
-      if ("in" in link && "out" in link) {
-        tmp = link.in;
-        link.in = link.out;
-        link.out = tmp;
-      }
-    }
-    // use target OR remote for name
-    let linkname = (link.source + "---" + link.target).replace(/ /g, "__");
-    if (linkname in this.links && this.links[linkname].timestamp == timestamp) {
-      // this link already exists and the timestamp is current, add values together
-      // utilization percentage is added up and divided by total bandwidth
-      if (link.bandwidth > this.links[linkname].bandwidth) this.links[linkname].bandwidth = link.bandwidth;
-      this.links[linkname].totalbandwidth += link.bandwidth;
-      this.links[linkname].numlinks++;
-      this.links[linkname].in += link.in;
-      this.links[linkname].out += link.out;
-    } else {
-      // this link does not exist (or it exists and the timestamp is too old), add it
-      link.timestamp = timestamp;
-      this.links[linkname] = link;
-      this.links[linkname].totalbandwidth = link.bandwidth;
-      this.links[linkname].numlinks = 1;
-    }
-    this.links[linkname].id = linkname;
-    this.links[linkname].forward = (link.source + "---" + link.target).replace(/ /g, "__");
-    this.links[linkname].reverse = (link.target + "---" + link.source).replace(/ /g, "__");
-    return this.links[linkname];
-  }
-
-  convert_link_optic(link, timestamp) {
-    // convert link formats and save it in this.links
-
-    // sort source and target alphabetically
-    if (link.source > link.target) {
-      // switch source and target around
-      let tmp = link.source;
-      link.source = link.target;
-      link.target = tmp;
-      if (link.remote !== undefined && link.remote == link.source) {
-        // don't forget to update remote if it exists
-        link.remote = link.target;
-      }
-      // also switch values so they're not reversed
-      let fields = ["receive", "transmit", "lbc"];
-      for (let i in fields) {
-        if (link['source_' + fields[i]] === undefined && link['target_' + fields[i]] === undefined) {
-          continue; // no source OR target field
-        } else if (link['source_' + fields[i]] === undefined) {
-          // just rename source to target
-          link['target_' + fields[i]] = link['source_' + fields[i]];
-          delete link['source_' + fields[i]];
-        } else if (link['target_' + fields[i]] === undefined) {
-          // just rename target to source
-          link['source_' + fields[i]] = link['target_' + fields[i]];
-          delete link['target_' + fields[i]];
-        } else {
-          // full swap
-          tmp = link['source_' + fields[i]];
-          link['source_' + fields[i]] = link['target_' + fields[i]];
-          link['target_' + fields[i]] = tmp;
+      if (this.datatype == DataType.Utilization) {
+        // switch input/output rates and write source/target rates
+        link.source_in = link.out;
+        link.source_out = link.in;
+        link.target_in = link.in;
+        link.target_out = link.out;
+      } else if (this.datatype == DataType.Optic || this.datatype == DataType.Health) {
+        let fields;
+        if (this.datatype == DataType.Optic) {
+          fields = ["receive", "transmit", "lbc"];
+        } else if (this.datatype == DataType.Health) {
+          fields = ["output_drop", "input_error", "crc_error", "packet_loss"];
+        }
+        for (let i in fields) {
+          if (link['source_' + fields[i]] === undefined && link['target_' + fields[i]] === undefined) {
+            continue; // no source OR target field
+          } else if (link['source_' + fields[i]] === undefined && link['target_' + fields[i]] !== undefined) {
+            // no source, just rename target to source
+            link['source_' + fields[i]] = link['target_' + fields[i]];
+            delete link['target_' + fields[i]];
+          } else if (link['target_' + fields[i]] === undefined && link['source_' + fields[i]] !== undefined) {
+            // just rename target to source
+            link['target_' + fields[i]] = link['source_' + fields[i]];
+            delete link['source_' + fields[i]];
+          } else {
+            // full swap
+            tmp = link['source_' + fields[i]];
+            link['source_' + fields[i]] = link['target_' + fields[i]];
+            link['target_' + fields[i]] = tmp;
+          }
         }
       }
-    }
-    // use target OR remote for name
-    let linkname = (link.source + "---" + link.target).replace(/ /g, "__");
-    if (linkname in this.links && this.links[linkname].timestamp == timestamp) {
-      // this link already exists and the timestamp is current, add values together
-
-      // skip TODO FIXME for optic data
     } else {
-      // this link does not exist (or it exists and the timestamp is too old), add it
+      if (this.datatype == DataType.Utilization) {
+        // just write source/target rates
+        link.source_in = link.in;
+        link.source_out = link.out;
+        link.target_in = link.out;
+        link.target_out = link.in;
+      } else if (this.datatype == DataType.Optic) {
+        // no adjustments needed
+      } else if (this.datatype == DataType.Health) {
+        // no adjustments needed
+      }
+    }
+
+    let linkname = link_name(link.source, link.target);
+    if (linkname in this.links && this.links[linkname].timestamp == timestamp) {
+      // this link already exists and the timestamp is current, do something to combine/aggregate this link
+      this.links[linkname].numlinks++;
+      if (this.datatype == DataType.Utilization) {
+        // adjust total bandwidth, rates and number of links
+        this.links[linkname].totalbandwidth += link.bandwidth;
+        this.links[linkname].source_in += link.source_in;
+        this.links[linkname].source_out += link.source_out;
+        this.links[linkname].target_in += link.target_in;
+        this.links[linkname].target_out += link.target_out;
+        // also overwrite bandwidth with the biggest one
+        if (this.links[linkname].bandwidth < link.bandwidth) {
+          this.links[linkname].bandwidth = link.bandwidth;
+        }
+      } else if (this.datatype == DataType.Optic) {
+        // set minimum optic level and maximum power
+        let fields = ["receive", "transmit"];
+        for (let i in fields) {
+          if (link['source_' + fields[i]] !== undefined && this.links[linkname]['source_' + fields[i] + '_min'] !== undefined &&
+              link['source_' + fields[i]] < this.links[linkname]['source_' + fields[i] + '_min']) {
+            this.links[linkname]['source_' + fields[i] + '_min'] = link['source_' + fields[i]];
+          }
+          if (link['target_' + fields[i]] !== undefined && this.links[linkname]['target_' + fields[i] + '_min'] !== undefined &&
+              link['target_' + fields[i]] < this.links[linkname]['target_' + fields[i] + '_min']) {
+            this.links[linkname]['target_' + fields[i] + '_min'] = link['target_' + fields[i]];
+          }
+        }
+        if (link['source_lbc'] !== undefined && this.links[linkname]['source_lbc_max'] !== undefined &&
+            link['source_lbc'] < this.links[linkname]['source_lbc_max']) {
+          this.links[linkname]['source_lbc_max'] = link['source_lbc'];
+        }
+        if (link['target_lbc'] !== undefined && this.links[linkname]['target_lbc_max'] !== undefined &&
+            link['target_lbc'] < this.links[linkname]['target_lbc_max']) {
+          this.links[linkname]['target_lbc_max'] = link['target_lbc'];
+        }
+      } else if (this.datatype == DataType.Health) {
+
+      }
+    } else {
+      // this link does not exist, or is too old - add it
       link.timestamp = timestamp;
+      link.numlinks = 1;
+      if (this.datatype == DataType.Utilization) {
+        link.totalbandwidth = link.bandwidth;        
+      } else if (this.datatype == DataType.Optic) {
+        if(link.source_receive !== undefined) link.source_receive_min = link.source_receive;
+        if(link.source_transmit !== undefined) link.source_transmit_min = link.source_transmit;
+        if(link.target_receive !== undefined) link.target_receive_min = link.target_receive;
+        if(link.target_transmit !== undefined) link.target_transmit_min = link.target_transmit;
+        if(link.source_lbc !== undefined) link.source_lbc_max = link.source_lbc;
+        if(link.target_lbc !== undefined) link.target_lbc_max = link.target_lbc;
+      } else if (this.datatype == DataType.Health) {
+
+      }
       this.links[linkname] = link;
     }
-    return this.links[linkname];
+    this.links[linkname].id = linkname;
+    this.links[linkname].forward = linkname;
+    this.links[linkname].reverse = link_name(link.target, link.source);
   }
 
   create_link(link, source, target, linkname, reverselinkname) {
-    // set colors, widths, etc.
     let strokeclass, sourcecol, targetcol, sourcetext, targettext = null;
     let tooltipdata = tooltip_data(link, this.datatype);
-    if (this.datatype == "util") {
+    if (this.datatype == DataType.Utilization) {
       strokeclass = "bw" + truncate(link.bandwidth);
-      sourcecol = translate_color(link.out / link.totalbandwidth);
-      targetcol = translate_color(link.in / link.totalbandwidth);
-      sourcetext = truncate(link.out);
-      targettext = truncate(link.in);
-    } else if (this.datatype == "optic") {
+      sourcecol = translate_color(link.source_out / link.totalbandwidth);
+      targetcol = translate_color(link.target_out / link.totalbandwidth);
+      sourcetext = truncate(link.source_out);
+      targettext = truncate(link.target_out);
+    } else if (this.datatype == DataType.Optic) {
       strokeclass = "bw10G"; // set a static optic width
-      sourcecol = optic_color(link.source_receive);
-      targetcol = optic_color(link.target_receive);
+      // color based on minimun, not first link
+      sourcecol = optic_color(link.source_receive_min);
+      targetcol = optic_color(link.target_receive_min);
       if (link.source_receive) {
         sourcetext = link.source_receive.toFixed(1);
       }
       if (link.target_receive) {
         targettext = link.target_receive.toFixed(1);
       }
+    } else if (this.datatype == DataType.Health) {
+      strokeclass = "bw10G"; // set a static health width
+      sourcecol = health_color(link.source_packet_loss, link.source_input_error, link.source_output_drop);
+      targetcol = health_color(link.target_packet_loss, link.target_input_error, link.target_output_drop);
+      if (link.source_packet_loss !== undefined) {
+        sourcetext = (100.0 - (link.source_packet_loss * 100)).toFixed(1);
+      }
+      if (link.target_packet_loss !== undefined) {
+        targettext = (100.0 - (link.target_packet_loss * 100)).toFixed(1);
+      }
     }
+    
     // override colors depending on link state
     sourcecol = display_state(link.state, sourcecol);
     targetcol = display_state(link.state, targetcol);
@@ -390,11 +578,7 @@ export class LinkMapper {
             .style("opacity", 1)
             .style("left", (event.pageX - 80) + "px")
             .style("top", (event.pageY) + "px");
-          if (datatype == "util") {
-            d3.select("div.tooltip").html(tooltip_text(d));
-          } else if (datatype == "optic") {
-            d3.select("div.tooltip").html(tooltip_text(d));
-          }
+          d3.select("div.tooltip").html(tooltip_text(d));
         })
         .on("mouseout", function (event, d) {
           d3.select("div.tooltip").transition().duration(500).style("opacity", 0);
@@ -432,11 +616,7 @@ export class LinkMapper {
             .style("opacity", 1)
             .style("left", (event.pageX - 80) + "px")
             .style("top", (event.pageY) + "px");
-          if (datatype == "util") {
-            d3.select("div.tooltip").html(tooltip_text(d));
-          } else if (datatype == "optic") {
-            d3.select("div.tooltip").html(tooltip_text(d));
-          }
+          d3.select("div.tooltip").html(tooltip_text(d));
         })
         .on("mouseout", function (event, d) {
           d3.select("div.tooltip").transition().duration(500).style("opacity", 0);
@@ -455,26 +635,37 @@ export class LinkMapper {
   }
 
   update_link(link, linkname, reverselinkname) {
-    // update colors and text
     let strokeclass, sourcecol, targetcol, sourcetext, targettext = null;
     let tooltipdata = tooltip_data(link, this.datatype);
-    if (this.datatype == "util") {
+    if (this.datatype == DataType.Utilization) {
       strokeclass = "bw" + truncate(link.bandwidth);
-      sourcecol = translate_color(link.out / link.totalbandwidth);
-      targetcol = translate_color(link.in / link.totalbandwidth);
-      sourcetext = truncate(link.out);
-      targettext = truncate(link.in);
-    } else if (this.datatype == "optic") {
+      sourcecol = translate_color(link.source_out / link.totalbandwidth);
+      targetcol = translate_color(link.target_out / link.totalbandwidth);
+      sourcetext = truncate(link.source_out);
+      targettext = truncate(link.target_out);
+    } else if (this.datatype == DataType.Optic) {
       strokeclass = "bw10G"; // set a static optic width
-      sourcecol = optic_color(link.source_receive);
-      targetcol = optic_color(link.target_receive);
+      // color based on minimun, not first link
+      sourcecol = optic_color(link.source_receive_min);
+      targetcol = optic_color(link.target_receive_min);
       if (link.source_receive) {
         sourcetext = link.source_receive.toFixed(1);
       }
       if (link.target_receive) {
         targettext = link.target_receive.toFixed(1);
       }
+    } else if (this.datatype == DataType.Health) {
+      strokeclass = "bw10G"; // set a static health width
+      sourcecol = health_color(link.source_packet_loss, link.source_input_error, link.source_output_drop);
+      targetcol = health_color(link.target_packet_loss, link.target_input_error, link.target_output_drop);
+      if (link.source_packet_loss !== undefined) {
+        sourcetext = (100.0 - (link.source_packet_loss * 100)).toFixed(1);
+      }
+      if (link.target_packet_loss !== undefined) {
+        targettext = (100.0 - (link.target_packet_loss * 100)).toFixed(1);
+      }
     }
+
     // override colors depending on link state
     sourcecol = display_state(link.state, sourcecol);
     targetcol = display_state(link.state, targetcol);
@@ -516,10 +707,11 @@ export class LinkMapper {
   }
 
   move_link(link) {
+    // physically move an existing link on the graph
     let source = link.source;
     let target = link.target;
-    let linkname = (source.name + "---" + target.name).replace(/ /g, "__");
-    let reverselinkname = (target.name + "---" + source.name).replace(/ /g, "__");
+    let linkname = link_name(source, target);
+    let reverselinkname = link_name(target, source);
     let m = new LinkMath(this.sim_callback(), source, target);
 
     this.svg.select("g#label-" + linkname)
@@ -548,8 +740,8 @@ export class LinkMapper {
     let target = nodes.find(n => n.name == (typeof link.target == "string" ? link.target : link.target.name));
     if (source === undefined || target === undefined) return;
 
-    let linkname = (source.name + "---" + target.name).replace(/ /g, "__");
-    let reverselinkname = (target.name + "---" + source.name).replace(/ /g, "__");
+    let linkname = link_name(source, target);
+    let reverselinkname = link_name(target, source);
 
     // first, determine if this link already exists and we just need to update
     // text and colors, or we need to generate and place it

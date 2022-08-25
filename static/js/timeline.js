@@ -1,5 +1,6 @@
 /* jshint esversion: 6 */
-import { Weathermap, WeathermapLoader } from "./weathermap.js";
+import { DataType } from "./links.js";
+import { get_datatype, Weathermap, WeathermapLoader } from "./weathermap.js";
 
 export class Timeline {
   constructor(weathermap) {
@@ -12,7 +13,7 @@ export class Timeline {
     this.playback_speed = 1;
     this.step = 0;
     this.timeout = null;
-    this.mode = 'util';
+    this.mode = get_datatype();
   }
 
   load_timedata(data) {
@@ -62,13 +63,30 @@ export class Timeline {
     this.status_text("Loaded: " + this.timedata.length + " points starting at " + this.timedata[this.step][0].datetime);
   }
 
-  get_utilization() {
-    this.mode = 'util';
+  get_update() {
     this.stop_playback();
     let date = d3.select("#date").property('value');
     let hour = d3.select("#hour").property('value');
 
-    d3.json('/api/timeline/' + this.nodenames.join(",") + "/utilization", {
+    let datatype = get_datatype();
+    let datatype_url;
+    switch (datatype) {
+      case DataType.Utilization:
+        datatype_url = "utilization";
+        break;
+      case DataType.Optic:
+        datatype_url = "optic";
+        break;
+      case DataType.Health:
+        datatype_url = "health";
+        break;
+    }
+
+    if(this.weathermap.linkmapper.datatype != datatype) {
+      this.weathermap.linkmapper.set_datatype(datatype);
+    }
+
+    d3.json('/api/timeline/' + this.nodenames.join(",") + "/" + datatype_url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -79,41 +97,13 @@ export class Timeline {
     }).then(data => {
       this.load_timedata(data);
       // initial load
-      this.weathermap.util_linkmapper.update(this.timedata_working[this.step]);
+      this.weathermap.linkmapper.update(this.timedata_working[this.step]);
       this.enable_after_load();
-    },
-      error => {
-        this.weathermap.util_linkmapper.update([]);
-        d3.select("#timeline-load").property('disabled', false);
-        this.status_text(error);
-      });
-  }
-
-  get_optics() {
-    this.mode = 'optic';
-    this.stop_playback();
-    let date = d3.select("#date").property('value');
-    let hour = d3.select("#hour").property('value');
-
-    d3.json('/api/timeline/' + this.nodenames.join(",") + "/optic", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        "date": date,
-        "hour": parseInt(hour),
-        "remotes": this.remotenames.join(",")
-      })
-    }).then(data => {
-      this.load_timedata(data);
-      // initial load
-      this.weathermap.optic_linkmapper.update(this.timedata_working[this.step]);
-      this.enable_after_load();
-    },
-      error => {
-        this.weathermap.optic_linkmapper.update([]);
-        d3.select("#timeline-load").property('disabled', false);
-        this.status_text(error);
-      });
+    }, error => {
+      this.weathermap.linkmapper.update([]);
+      d3.select("#timeline-load").property('disabled', false);
+      this.status_text(error);
+    });
   }
 
   timeline_step(unit) {
@@ -129,11 +119,7 @@ export class Timeline {
       this.timedata_working = JSON.parse(JSON.stringify(this.timedata));
     }
 
-    if (this.mode == 'util') {
-      this.weathermap.util_linkmapper.update(this.timedata_working[this.step]);
-    } else if (this.mode == 'optic') {
-      this.weathermap.optic_linkmapper.update(this.timedata_working[this.step]);
-    }
+    this.weathermap.linkmapper.update(this.timedata_working[this.step]);
 
     this.status_text(this.timedata[this.step][0].datetime);
     d3.select("#timeline-step").property('value', this.step);
@@ -148,11 +134,7 @@ export class Timeline {
     this.step = step;
 
     this.timedata_working = JSON.parse(JSON.stringify(this.timedata));
-    if (this.mode == 'util') {
-      this.weathermap.util_linkmapper.update(this.timedata_working[this.step]);
-    } else if (this.mode == 'optic') {
-      this.weathermap.optic_linkmapper.update(this.timedata_working[this.step]);
-    }
+    this.weathermap.linkmapper.update(this.timedata_working[this.step]);
     this.status_text(this.timedata[this.step][0].datetime);
   }
 
@@ -230,25 +212,14 @@ class TimelineLoader extends WeathermapLoader {
       return;
     }
 
-    let selectid = document.getElementById("dataselector");
-    let dataselect = "util"; // default view is utilization
-    if (selectid !== undefined && selectid !== null) {
-      dataselect = selectid.options[selectid.selectedIndex].value;
-    }
-
     d3.select("#timeline-load").property('disabled', true);
     d3.select("#timeline-startstop").property('disabled', true);
     d3.select("#timeline-stepforward").property('disabled', true);
     d3.select("#timeline-stepbackward").property('disabled', true);
     d3.select("#timeline-step").property('disabled', true);
 
-    if (dataselect == "util") {
-      this.timeline.status_text("Retrieving utilization data, may take a few minutes...");
-      this.timeline.get_utilization();
-    } else if (dataselect == "optic") {
-      this.timeline.status_text("Retrieving optics data, may take a few minutes...");
-      this.timeline.get_optics();
-    }
+    this.timeline.status_text("Retrieving data, may take a few minutes...");
+    this.timeline.get_update();
   }
 
   start_playback() {
@@ -291,16 +262,6 @@ class TimelineLoader extends WeathermapLoader {
   force_update() {
     let self = window.timelineloader;
     clearTimeout(self.timeout);
-    let selectid = document.getElementById("dataselector");
-    let dataselect = "util"; // default view is utilization
-    if (selectid !== undefined && selectid !== null) {
-      dataselect = selectid.options[selectid.selectedIndex].value;
-    }
-    if (dataselect == 'util') {
-      self.map.util_linkmapper.clear();
-    } else if (dataselect == 'optic') {
-      self.map.optic_linkmapper.clear();
-    }
     self.get_timeline();
   }
 }

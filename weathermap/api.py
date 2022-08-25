@@ -166,7 +166,7 @@ def optic_links(sourcenode, targetnode):
 
 @api.route('/timeline/<string:node>/<string:datatype>', methods=['POST'])
 def node_timeline(node, datatype):
-    if datatype not in ['utilization', 'optic']:
+    if datatype not in ['utilization', 'optic', 'health']:
         raise ValueError(f"Unknown datatype '{datatype}'")
     if not request.json:
         raise ValueError("Missing POST body")
@@ -202,6 +202,14 @@ def node_timeline(node, datatype):
         # also collect remotes - runs much more quickly because data is cached
         if request.json.get('remotes'):
             remotes = circuit.get_optics_timeline(
+                validate_node(node), startdate, enddate,
+                short_interval=short_interval, remotes=validate_node(request.json.get('remotes')))
+            links.extend(remotes)
+    elif datatype == 'health':
+        links = circuit.get_health_timeline(validate_node(node), startdate, enddate, short_interval=short_interval)
+        # also collect remotes - runs much more quickly because data is cached
+        if request.json.get('remotes'):
+            remotes = circuit.get_health_timeline(
                 validate_node(node), startdate, enddate,
                 short_interval=short_interval, remotes=validate_node(request.json.get('remotes')))
             links.extend(remotes)

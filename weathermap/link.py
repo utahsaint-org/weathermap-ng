@@ -32,10 +32,14 @@ class Link(object):
         self.out_rate = None
         self.bandwidth = None
         # health
-        self.crc_error = None
-        self.in_error = None
-        self.packet_loss = None
-        self.out_drop = None
+        self.source_crc_error = None
+        self.source_in_error = None
+        self.source_packet_loss = None
+        self.source_out_drop = None
+        self.target_crc_error = None
+        self.target_in_error = None
+        self.target_packet_loss = None
+        self.target_out_drop = None
         # optics
         self.source_optic_rx = None
         self.source_optic_tx = None
@@ -60,10 +64,14 @@ class Link(object):
             'target_optic_rx,target_receive',
             'target_optic_tx,target_transmit',
             'target_optic_lbc,target_lbc',
-            'crc_error',
-            'in_error,input_error',
-            'packet_loss',
-            'out_drop,output_drop'
+            'source_crc_error',
+            'source_in_error,source_input_error',
+            'source_packet_loss',
+            'source_out_drop,source_output_drop',
+            'target_crc_error',
+            'target_in_error,target_input_error',
+            'target_packet_loss',
+            'target_out_drop,target_output_drop',
         )
 
     def get(self):
@@ -109,20 +117,26 @@ class Link(object):
             self.datasource = rate.datasource
             self.datetime = str(rate.datetime.astimezone())
 
-    def set_health(self, counter):
+    def set_health(self, srccounter, tgtcounter):
         """Set interface health and error counters.
 
-        :param counter: Counter object.
-        :param crc: CRC error counter as an integer.
-        :param inerr: Input error counter as an integer.
-        :param inpkt: Input packet counter as an integer.
-        :param outerr: Output error counter as an integer.
+        :param srccounter: Source Counter object.
+        :param tgtcounter: Target Counter object.
         """
-        if counter and isinstance(counter, Counter):
-            self.crc_error = counter.crc
-            self.in_error = counter.inerr
-            self.packet_loss = (counter.inerr / counter.inrx if counter.inrx is not None and counter.inrx > 0 else 0)
-            self.out_drop = counter.outerr
+        if srccounter and isinstance(srccounter, Counter):
+            self.source_crc_error = srccounter.crc
+            self.source_in_error = srccounter.inerr
+            self.source_packet_loss = (srccounter.inerr / srccounter.inrx
+                if srccounter.inrx is not None and srccounter.inrx > 0 else 0)
+            self.source_out_drop = srccounter.outerr
+            self.datasource = srccounter.datasource
+            self.datetime = str(srccounter.datetime.astimezone())
+        if tgtcounter and isinstance(tgtcounter, Counter):
+            self.target_crc_error = tgtcounter.crc
+            self.target_in_error = tgtcounter.inerr
+            self.target_packet_loss = (tgtcounter.inerr / tgtcounter.inrx
+                if tgtcounter.inrx is not None and tgtcounter.inrx > 0 else 0)
+            self.target_out_drop = tgtcounter.outerr
 
     def set_optics(self, srcoptic, tgtoptic):
         """Set optical data. Note that this needs information from both ends.

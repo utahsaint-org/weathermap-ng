@@ -35,13 +35,13 @@ export class Aggregate {
       let reverse = (this.nodes[idx][1] + "---" + this.nodes[idx][0]).replace(/ /g, "__");
       if (data[forward] !== undefined) {
         bandwidth += data[forward].totalbandwidth;
-        inrate += data[forward].in;
-        outrate += data[forward].out;
+        inrate += data[forward].source_in;
+        outrate += data[forward].source_out;
         any_down = (any_down | data[forward].state == "down");
       } else if (data[reverse] !== undefined) {
         bandwidth += data[reverse].totalbandwidth;
-        inrate += data[reverse].out;
-        outrate += data[reverse].in;
+        inrate += data[reverse].source_out;
+        outrate += data[reverse].source_in;
         any_down = (any_down | data[reverse].state == "down");
       }
     }
@@ -51,6 +51,10 @@ export class Aggregate {
 
   hide(svg) {
     svg.select("g#aggr-" + this.name).style("display", "none");
+  }
+
+  remove(svg) {
+    svg.select("g#aggr-" + this.name).remove();
   }
 
   draw(svg, data) {

@@ -582,17 +582,91 @@ class Circuit(object):
             links = self._remote_link_cache.get(tuple(nodelist), tuple(remotes))
         else:
             links = self._between_link_cache.get(tuple(nodelist), skip_self)
+
+        tmp_health = {} # keyed by node name
+        tmp_states = {}
         for link in copy(links):
-            # read rates from the source side first
-            node_health = self.merge_datasources('get_counters', args=link.source.node)
-            link_states = self.merge_datasources('get_states', args=link.source.node)
+            # read counters from the source side first
+            if link.source.node not in tmp_health:
+                tmp_health.update(self.merge_datasources('get_counters', args=link.source.node))
+            if link.source.node not in tmp_states:
+                tmp_states.update(self.merge_datasources('get_states', args=link.source.node))
 
             # filter for specific interface
-            link.set_health(node_health.get(link.source.node, {}).get(link.source.interface, None))
-            link.set_state(link_states.get(link.source.node, {}).get(link.source.interface, None))
-            if link.crc_error is None and link.in_error is None and link.out_drop is None:
+            source_health = tmp_health[link.source.node].get(link.source.interface, None)
+            # set state from source side
+            try:
+                link.set_state(tmp_states[link.source.node].get(link.source.interface, None))
+            except:
+                pass # none found in state table
+
+            # read counters from target side
+            target_health = None
+            if not remotes:
+                if link.target.node not in tmp_health:
+                    tmp_health.update(self.merge_datasources('get_counters', args=link.target.node))
+                
+                # filter for specific interface
+                target_health = tmp_health[link.target.node].get(link.target.interface, None)
+            
+            link.set_health(source_health, target_health)
+            if not remotes and link.source_crc_error is None and link.target_crc_error is None:
+                # no data on either end, remove it from the list
                 links.remove(link)
         return links
+
+    def get_health_timeline(self, nodelist, starttime, endtime, short_interval=False, remotes=False, skip_self=False):
+        """Get interface counters for a list of nodes, over a period of time.
+
+        :param nodelist: A list of node names (full or abbreviated).
+        :param starttime: Beginning time as a Datetime object.
+        :param endtime: End time as a Datetime object.
+        :param short_interval: If True, use short intervals, otherwise use long intervals to improve performance 
+        (Default value = False)
+        :param remotes: Optional list of remote names to add (Default value = False)
+        :param skip_self: If True, skip counters for links in between node names from nodelist (Default value = False)
+        :returns: A list of Link objects sorted by time, within a list with the same names nd description.
+        """
+        self.gather_interfaces()
+        if remotes:
+            links = self._remote_link_cache.get(tuple(nodelist), tuple(remotes))
+        else:
+            links = self._between_link_cache.get(tuple(nodelist), skip_self)
+        # get a list of source nodes first and get historic counters all at once
+        node_list = set(link.source.node for link in links)
+        # also add target nodes for optical data on the other side
+        if not remotes:
+            node_list.update(link.target.node for link in links)
+        tmp_health = self.merge_datasources(
+            'get_historic_counters', args=node_list,
+            kwargs={'starttime': starttime, 'endtime': endtime, 'short_interval': short_interval})
+        tmp_states = self.merge_datasources(
+            'get_historic_states', args=node_list,
+            kwargs={'starttime': starttime, 'endtime': endtime, 'short_interval': short_interval})
+
+        timeline_links = []
+        for link in links:
+            if link.source.node not in tmp_health or link.source.interface not in tmp_health[link.source.node]:
+                continue # optical data missing for this interface
+            source_health = tmp_health[link.source.node][link.source.interface]
+            try:
+                source_states = tmp_states[link.source.node][link.source.interface]
+            except:
+                source_states = [None] * len(source_health) # not found
+            if not remotes and link.target.node in tmp_health:
+                target_health = tmp_health[link.target.node].get(link.target.interface, [None] * len(source_health))
+            else:
+                # set None, no way to know remote optical data
+                target_health = [None] * len(source_health)
+
+            timeline_link = []
+            for source, target, state in zip(source_health, target_health, source_states):
+                link = copy(link)
+                link.set_health(source, target)
+                link.set_state(state)
+                timeline_link.append(link)
+            timeline_links.append(timeline_link)
+        return timeline_links
 
     def get_optics(self, nodelist, remotes=False, skip_self=False):
         """Get interface optical data for a list of nodes.

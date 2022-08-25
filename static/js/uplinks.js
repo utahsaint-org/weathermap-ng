@@ -2,7 +2,7 @@
 /* jshint loopfunc: true */
 import { Aggregate } from "./aggregates.js";
 import { WeathermapNode } from "./nodes.js";
-import { LinkMapper } from "./links.js";
+import { LinkMapper, DataType } from "./links.js";
 import { Weathermap, WeathermapLoader } from "./weathermap.js";
 
 // Extends a Weathermap object to draw an uplink overview page
@@ -10,7 +10,7 @@ class Uplink extends Weathermap {
   constructor(svg, name, interval = 30, update_callback = null) {
     super(svg, name, interval);
     // set up link mappers, but disable drawing with them
-    this.util_linkmapper = new LinkMapper(this.svg, () => this.get_nodes(), () => this.get_simulation(), () => this.get_util_aggregates(), "util", false);
+    this.linkmapper = new LinkMapper(this.svg, () => this.get_nodes(), () => this.get_simulation(), () => this.get_util_aggregates(), DataType.Utilization, false);
     this.sections = {};
     this.aggregates = {}; // override original - object keyed by link name instead of array
     this.update_callback = update_callback;
@@ -28,6 +28,8 @@ class Uplink extends Weathermap {
         // get remote position and use that
         let remote = this.nodes.filter(n => n.name == linkmapper.links[link].remote)[0];
         let source = this.nodes.filter(n => n.name == linkmapper.links[link].source)[0];
+        // no remote available, skip
+        if (remote === undefined) continue;
         if (remote.has_pos) {
           // remote is truly the remote, use that
           this.aggregates[link] = new Aggregate({
@@ -55,7 +57,7 @@ class Uplink extends Weathermap {
   }
 
   get_util_aggregates() {
-    return this.get_aggregates(this.util_linkmapper);
+    return this.get_aggregates(this.linkmapper);
   }
 
   draw() {
@@ -183,14 +185,14 @@ class Uplink extends Weathermap {
       for (let remotenames of remotelist) {
         d3.json('/api/node/' + nodenames.join(",") + "/remote/" + remotenames.join(",") + "/utilization?skip_self=true").then(
           data => {
-            this.util_linkmapper.update(data);
+            this.linkmapper.update(data);
             if (!timeout_set && this.update_callback) {
               timeout_set = true;
               this.update_callback(true);
             }
           },
           error => {
-            this.util_linkmapper.update([]);
+            this.linkmapper.update([]);
             if (!timeout_set && this.update_callback) {
               timeout_set = true;
               this.update_callback(false);

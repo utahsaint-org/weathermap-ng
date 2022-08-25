@@ -62,6 +62,14 @@ export function optic_color(dbm) {
   return "0";
 }
 
+export function health_color(pct, in_err = 0, out_drop = 0) {
+  if (pct > 0.01) return "100";
+  if (pct > 0.001) return "80";
+  if (pct > 0.0001) return "20";
+  if (pct > 0.00001 || in_err || out_drop) return "10";
+  return "2";
+}
+
 export function generate_css(svg) {
   // set CSS values for the SVG
 

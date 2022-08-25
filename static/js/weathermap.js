@@ -1,8 +1,24 @@
 /* jshint esversion: 6 */
-import { LinkMapper } from "./links.js";
+import { LinkMapper, DataType } from "./links.js";
 import { WeathermapNode } from "./nodes.js";
 import { Aggregate } from "./aggregates.js";
 import { generate_css, set_defs } from "./graphics.js";
+
+export function get_datatype() {
+  // get link data type
+  let selectid = document.getElementById("dataselector");
+  let dataselect = "util"; // default view is utilization
+  if (selectid !== undefined && selectid !== null) {
+    dataselect = selectid.options[selectid.selectedIndex].value;
+  }
+  if (dataselect == "util") {
+    return DataType.Utilization;
+  } else if (dataselect == "optic") {
+    return DataType.Optic;
+  } else if (dataselect == "health") {
+    return DataType.Health;
+  }
+}
 
 export class Weathermap {
   constructor(svg, name, interval = 30, update_callback = null) {
@@ -13,8 +29,7 @@ export class Weathermap {
     this.links = [];
     this.simulation = null;
     this.svg = svg;
-    this.util_linkmapper = new LinkMapper(this.svg, () => this.get_nodes(), () => this.get_simulation(), () => this.get_aggregates(), "util");
-    this.optic_linkmapper = new LinkMapper(this.svg, () => this.get_nodes(), () => this.get_simulation(), () => this.get_aggregates(), "optic");
+    this.linkmapper = new LinkMapper(this.svg, () => this.get_nodes(), () => this.get_simulation(), () => this.get_aggregates(), get_datatype());
     this.update_callback = update_callback;
 
     generate_css(this.svg);
@@ -57,8 +72,7 @@ export class Weathermap {
     if (config.edges !== undefined) {
       config.edges.forEach(node => this.nodes.push(new WeathermapNode(node, maplist)));
       // also add rules to linkmappers
-      this.util_linkmapper.set_edge_nodes(config.edges.map(node => node.name));
-      this.optic_linkmapper.set_edge_nodes(config.edges.map(node => node.name));
+      this.linkmapper.set_edge_nodes(config.edges.map(node => node.name));
     }
 
     // add remotes (optional)
@@ -80,60 +94,49 @@ export class Weathermap {
     this.simulation.stop();
   }
 
-  get_utilization() {
-    // get link utilization data for nodes and remotes
+  get_update() {
+    // get link data for nodes and remotes
 
     // get node-to-node link data
     let nodenames = this.nodes.filter(node => !node.is_remote).map(({ name }) => name);
-    d3.json('/api/node/' + nodenames.join(",") + "/link/utilization?skip_self=true").then(
+    let datatype = get_datatype();
+    let datatype_url;
+    switch (datatype) {
+      case DataType.Utilization:
+        datatype_url = 'utilization';
+        break;
+      case DataType.Optic:
+        datatype_url = 'optic';
+        break;
+      case DataType.Health:
+        datatype_url = 'health';
+        break;
+    }
+    if (datatype != this.linkmapper.datatype) {
+      this.linkmapper.set_datatype(datatype);
+    }
+    d3.json('/api/node/' + nodenames.join(",") + "/link/" + datatype_url + "?skip_self=true").then(
       data => {
         // success - update & reschedule
-        this.util_linkmapper.update(data);
+        this.linkmapper.update(data);
         if (this.update_callback) {
           this.update_callback(true);
         }
       },
       error => {
         // problem accessing Weathermap - update with empty data, will run the staleness check
-        this.util_linkmapper.update([]);
+        this.linkmapper.update([]);
         if (this.update_callback) {
           this.update_callback(false);
         }
       }
     );
+
     // get node-to-remote link data
     let remotenames = this.nodes.filter(node => node.is_remote).map(({ name }) => name);
     if (remotenames.length) {
-      d3.json('/api/node/' + nodenames.join(",") + "/remote/" + remotenames.join(",") + "/utilization?skip_self=true")
-        .then(data => this.util_linkmapper.update(data));
-    }
-  }
-
-  get_optics() {
-    // get link optical data for nodes and remotes
-
-    // get node-to-node link data
-    let nodenames = this.nodes.filter(node => !node.is_remote).map(({ name }) => name);
-    d3.json('/api/node/' + nodenames.join(",") + "/link/optic?skip_self=true").then(
-      data => {
-        // success - update & reschedule
-        this.optic_linkmapper.update(data);
-        if (this.update_callback) {
-          this.update_callback(true);
-        }
-      },
-      error => {
-        // problem accessing Weathermap - update with empty data, will run the staleness check
-        this.util_linkmapper.update([]);
-        if (this.update_callback) {
-          this.update_callback(false);
-        }
-      });
-    // get node-to-remote link data
-    let remotenames = this.nodes.filter(node => node.is_remote).map(({ name }) => name);
-    if (remotenames.length) {
-      d3.json('/api/node/' + nodenames.join(",") + "/remote/" + remotenames.join(",") + "/optic?skip_self=true")
-        .then(data => this.optic_linkmapper.update(data));
+      d3.json('/api/node/' + nodenames.join(",") + "/remote/" + remotenames.join(",") + "/" + datatype_url + "?skip_self=true")
+        .then(data => this.linkmapper.update(data));
     }
   }
 
@@ -145,9 +148,7 @@ export class Weathermap {
     this.nodes.forEach(node => node.draw(this.svg));
     // set up drag events (to manually move nodes)
     let nodes = this.nodes;
-    let selectid = document.getElementById("dataselector");
-    let dataselect = selectid.options[selectid.selectedIndex].value;
-    let linkmapper = (dataselect == "util" ? this.util_linkmapper : this.optic_linkmapper);
+    let linkmapper = this.linkmapper;
     let svg = this.svg;
     let sim = this.simulation;
 
@@ -272,18 +273,7 @@ export class WeathermapLoader {
 
     // update every n seconds - updated indexes from 0
     if ((updated > 0 && updated % this.map.interval == 0) || firstload) {
-      // get link data type
-      let selectid = document.getElementById("dataselector");
-      let dataselect = "util"; // default view is utilization
-      if (selectid !== undefined && selectid !== null) {
-        dataselect = selectid.options[selectid.selectedIndex].value;
-      }
-      // update will get rescheduled in weathermap.get_utilization() or .get_optics()
-      if (dataselect == "util") {
-        this.map.get_utilization();
-      } else if (dataselect == "optic") {
-        this.map.get_optics();
-      }
+      this.map.get_update();
     } else {
       let self = this;
       this.timeout = setTimeout(() => self.update(), 1000);
@@ -311,8 +301,7 @@ export class WeathermapLoader {
 
   clear() {
     clearTimeout(this.timeout);
-    this.map.util_linkmapper.clear();
-    this.map.optic_linkmapper.clear();
+    this.map.linkmapper.clear();
     d3.select("#map").selectAll("*").remove();
     delete window.weathermaploader;
   }
