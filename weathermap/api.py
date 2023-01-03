@@ -22,11 +22,11 @@ def set_datasources(src, config):
 
 # helper functions
 def validate_node(nodestring, referrer=""):
-    if len(nodestring) > (1500 if "uplink" in referrer else 250):
+    if len(nodestring) > (1900 if "uplink" in referrer else 350):
         # uplink pages may have many remotes without node utilizations
         raise BadRequest(f'Node/remote string too long')
     nodelist = [node for node in nodestring.split(',') if node]
-    if len(nodelist) > 60:
+    if len(nodelist) > 80:
         raise BadRequest(f'Too many nodes/remotes requested')
     if not nodelist:
         raise BadRequest(f'Invalid node list "{nodestring}"')

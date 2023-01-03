@@ -151,6 +151,6 @@ def timeline(mapname=None):
 
 if __name__ == '__main__':
     # this is ignored if run with gunicorn like you're supposed to
-    app.logger.setLevel(logging.DEBUG)
-    logging.getLogger().setLevel(logging.DEBUG)
+    app.logger.setLevel(logging.INFO)
+    logging.getLogger().setLevel(logging.INFO)
     app.run(host='localhost', port=8080, debug=True)
