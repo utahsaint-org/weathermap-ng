@@ -189,7 +189,7 @@ class Circuit(object):
         if not remote_target:
             raise VerificationError(f"Verification error: description for {remote} "
                                     f"could not be parsed (remote side: {local})")
-        if local.node == remote.node:
+        if local.node.lower() == remote.node.lower():
             raise VerificationError(f"Verification error: local and remote device are both {local.node}")
         if remote_target.interface not in local.interface:
             raise VerificationError(f"Verification error: description from {remote} "
@@ -197,10 +197,10 @@ class Circuit(object):
         if local_target.interface not in remote.interface:
             raise VerificationError(f"Verification error: description from {local} "
                                     f"does not match {remote} (parsed: {local_target})")
-        if remote_target.node not in local.node:
+        if not remote_target.node or remote_target.node.lower() not in local.node.lower():
             raise VerificationError(f"Verification error: routername from {remote} "
                                     f"does not match {local} (parsed: {remote_target})")
-        if local_target.node not in remote.node:
+        if not local_target.node or local_target.node.lower() not in remote.node.lower():
             raise VerificationError(f"Verification error: routername from {local} "
                                     f"does not match {remote} (parsed: {local_target})")
         return True
@@ -216,18 +216,23 @@ class Circuit(object):
         # first, parse the description and try to get a device and interface out of it
         remote_parsed = self._parse_description(interface.description)
         if not remote_parsed:
+            logging.debug(f"search by description error: {interface} description not parsable")
             return # this description could not be parsed
 
         for remote_interface in interfacelist:
             if not remote_parsed.node:
+                logging.debug(f"search by description error: {interface} remote node not parsable")
                 continue # skip if the node name was not parsed
-            if remote_parsed.node in remote_interface.node:
+            if remote_parsed.node.lower() in remote_interface.node.lower():
                 if remote_parsed.interface not in remote_interface.interface:
                     # check the remote description to make sure it somewhat matches the local node before verifying
                     #logging.debug(interface, remote_parsed, remote_interface)
+                    logging.debug(f"search by description error: {interface} does not match remote interface "
+                                  f"{remote_interface}")
                     continue
                 if interface.node == remote_interface.node:
                     # skip if this device and the remote device are the same
+                    logging.debug(f"search by description error: {interface} node is remote node")
                     continue
                 try:
                     if self.verify_link(interface, remote_interface):
@@ -238,6 +243,7 @@ class Circuit(object):
                     elif str(e) not in self.verification_errors:
                         logging.warn(str(e))
                         self.verification_errors.add(str(e))
+        logging.debug(f"search by description error: {interface} search exhausted")
 
     def get_all_links(self, nodelist=None, int_check=True):
         """Gather all links for each node given (or will match) in nodelist.
