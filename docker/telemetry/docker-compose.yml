@@ -1,0 +1,77 @@
+###
+# docker/telemetry/docker-compose.yml
+# Useful for running the Weathermap application with an nginx frontend/proxy,
+# a TSDB, and an ingest platform.
+#     by Danial Ebling for UEN (danial@uen.org)
+#
+###
+version: "3.8"
+networks:
+  wmap_net:
+services:
+  # Weathermap server
+  weathermap:
+    build: ../../
+    # !!uncomment the following lines for plaintext configuration - filename may also be changed
+    env_file:
+      - config.env
+    networks:
+      - wmap_net
+    restart: always
+
+  # nginx
+  proxy:
+    image: nginx
+    depends_on:
+      - weathermap
+    volumes:
+      - ../../nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../../static:/usr/share/nginx/html/static/:ro
+      - ../../maps:/usr/share/nginx/html/maps/:ro
+      - ../../uplinks:/usr/share/nginx/html/uplinks/:ro
+      # HTTPS certificates, if generated
+      #- ./cert.key:/etc/nginx/cert.key:ro
+      #- ./cert.pem:/etc/nginx/cert.pem:ro
+    ports:
+      # host mode required to get real client IP
+      - mode: host
+        protocol: tcp
+        published: 80
+        target: 80
+      - mode: host
+        protocol: tcp
+        published: 443
+        target: 443
+    networks:
+      - wmap_net
+    restart: always
+  
+  # database
+  database:
+    image: influxdb:1.8
+    ports:
+      - "8086"
+    networks:
+      - wmap_net
+    env_file:
+      - influx.env
+    volumes:
+      - ./data/influxdb-metrics:/var/lib/influxdb
+      - ./influxdb.conf:/etc/influxdb/influxdb.conf:ro
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    restart: always
+  
+  # collector
+  telegraf:
+    image: telegraf
+    depends_on:
+      - database
+    ports:
+      - "57500:57000"
+    networks:
+      - wmap_net
+    env_file:
+      - influx.env
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    restart: always
